@@ -1,0 +1,165 @@
+{% extends 'base.html' %}
+
+{% block title %}Summaries{% endblock %}
+
+{% block content %}
+    <h1 class="mb-4">Summaries</h1>
+    <div id="summaries-container" class="accordion">
+        {% for summary in summaries %}
+        <div class="accordion-item">
+            <h2 class="accordion-header" id="heading-{{ summary.id }}">
+              <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-{{ summary.id }}" aria-expanded="false" aria-controls="collapse-{{ summary.id }}">
+                Summary from {{ summary.created_at }} ({{ summary.message_count }} messages)
+              </button>
+            </h2>
+            <div id="collapse-{{ summary.id }}" class="accordion-collapse collapse" aria-labelledby="heading-{{ summary.id }}">
+                <div class="accordion-body">
+                    <strong>Summary Text:</strong>
+                    <p class="mt-2" style="white-space: pre-wrap;">{{ summary.summary_text }}</p>
+                    <hr>
+                    <div class="messages-container" id="messages-for-summary-{{ summary.id }}">
+                        <button class="btn btn-primary btn-sm load-messages-btn" 
+                                data-message-ids="{{ summary.message_ids }}" 
+                                data-target-container="#messages-for-summary-{{ summary.id }}">
+                            Load Messages
+                        </button>
+                        <div class="spinner-border text-primary ms-2" role="status" style="display: none;">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <div class="messages-content-target mt-3"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="alert alert-info">No summaries found. Run the bot's /summary command to create one.</div>
+        {% endfor %}
+    </div>
+
+    <!-- Modal -->
+    <div class="modal fade" id="messageModal" tabindex="-1" aria-labelledby="messageModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="messageModalLabel">Message Details</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <p><strong>Sender:</strong> <span id="modal-sender"></span></p>
+            <p><strong>Chat ID:</strong> <span id="modal-chat-id"></span></p>
+            <p><strong>Date:</strong> <span id="modal-date"></span></p>
+            <hr>
+            <p id="modal-text" style="white-space: pre-wrap;"></p>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+          </div>
+        </div>
+      </div>
+    </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const messageModal = new bootstrap.Modal(document.getElementById('messageModal'));
+    const summariesData = new Map();
+
+    document.querySelectorAll('.load-messages-btn').forEach(button => {
+        button.addEventListener('click', async function () {
+            const btn = this;
+            const isLoaded = btn.dataset.loaded === 'true';
+            const targetContainer = document.querySelector(btn.dataset.targetContainer);
+            const contentTarget = targetContainer.querySelector('.messages-content-target');
+
+            // If data is already loaded, just toggle visibility
+            if (isLoaded) {
+                const isVisible = contentTarget.style.display !== 'none';
+                contentTarget.style.display = isVisible ? 'none' : 'block';
+                btn.textContent = isVisible ? 'Show Messages' : 'Hide Messages';
+                return;
+            }
+
+            // --- First time loading data ---
+            const messageIds = btn.dataset.messageIds;
+            const spinner = targetContainer.querySelector('.spinner-border');
+            const summaryId = targetContainer.id;
+
+            if (!messageIds) {
+                contentTarget.innerHTML = '<div class="alert alert-warning">No message IDs found for this summary.</div>';
+                btn.style.display = 'none';
+                return;
+            }
+
+            btn.disabled = true;
+            spinner.style.display = 'inline-block';
+            btn.textContent = 'Loading...';
+
+            try {
+                const response = await fetch(`/api/messages_by_ids?ids=${messageIds}`);
+                if (!response.ok) throw new Error(`Network response was not ok: ${response.status}`);
+                
+                const messages = await response.json();
+                if (messages.error) throw new Error(messages.error);
+
+                const messageMap = new Map(messages.map(msg => [msg.id.toString(), msg]));
+                summariesData.set(summaryId, messageMap);
+
+                let tableHtml = `
+                    <table class="table table-sm table-bordered">
+                        <thead class="table-light"><tr><th>ID</th><th>Sender</th><th>Date</th><th>Preview</th><th>Action</th></tr></thead>
+                        <tbody>
+                `;
+                messages.forEach(msg => {
+                    tableHtml += `
+                        <tr>
+                            <td>${msg.id}</td>
+                            <td>${msg.sender || 'N/A'}</td>
+                            <td>${msg.date}</td>
+                            <td>${msg.text ? msg.text.substring(0, 80) + '...' : ''}</td>
+                            <td><button class="btn btn-outline-secondary btn-sm view-message-btn" data-summary-id="${summaryId}" data-message-id="${msg.id}">View</button></td>
+                        </tr>
+                    `;
+                });
+                tableHtml += '</tbody></table>';
+                contentTarget.innerHTML = tableHtml;
+                contentTarget.style.display = 'block';
+
+                // Update button state after successful load
+                btn.dataset.loaded = 'true';
+                btn.textContent = 'Hide Messages';
+
+            } catch (error) {
+                contentTarget.innerHTML = `<div class="alert alert-danger">Failed to load messages: ${error.message}</div>`;
+                console.error('Fetch error:', error);
+                btn.textContent = 'Load Messages'; // Reset text on error
+            } finally {
+                // Re-enable button and hide spinner regardless of outcome
+                btn.disabled = false;
+                spinner.style.display = 'none';
+            }
+        });
+    });
+
+    // Event delegation for "View" buttons
+    document.getElementById('summaries-container').addEventListener('click', function(event) {
+        const viewBtn = event.target.closest('.view-message-btn');
+        if (viewBtn) {
+            event.preventDefault();
+            const summaryId = viewBtn.dataset.summaryId;
+            const messageId = viewBtn.dataset.messageId;
+            const messageMap = summariesData.get(summaryId);
+            const msg = messageMap ? messageMap.get(messageId) : null;
+
+            if (msg) {
+                document.getElementById('modal-sender').textContent = msg.sender || 'N/A';
+                document.getElementById('modal-chat-id').textContent = msg.chat_id;
+                document.getElementById('modal-date').textContent = msg.date;
+                document.getElementById('modal-text').textContent = msg.text || '';
+                messageModal.show();
+            }
+        }
+    });
+});
+</script>
+{% endblock %}

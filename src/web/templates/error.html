@@ -1,0 +1,12 @@
+{% extends 'base.html' %}
+
+{% block title %}Error{% endblock %}
+
+{% block content %}
+<div class="alert alert-danger" role="alert">
+  <h4 class="alert-heading">An Error Occurred</h4>
+  <p>{{ message }}</p>
+  <hr>
+  <p class="mb-0">Please check the application configuration and ensure the database is accessible and correctly formatted.</p>
+</div>
+{% endblock %}
