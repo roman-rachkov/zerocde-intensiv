@@ -257,8 +257,9 @@ async def main():
 def run():
     # Проверка конфигурации
     if not config.API_ID or not config.API_HASH:
-        print("ОШИБКА: Необходимо заполнить API_ID и API_HASH в config.py!")
-        print("Получите их на https://my.telegram.org/apps")
+        print("ОШИБКА: Необходимо заполнить API_ID и API_HASH в .env файле!")
+        print("Скопируйте .env.example в .env и впишите свои данные.")
+        print("Получить учетные данные можно на https://my.telegram.org/apps")
         exit(1)
     
     # Запуск основной асинхронной функции

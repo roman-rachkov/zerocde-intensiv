@@ -4,15 +4,13 @@
 Содержит функции для получения OAuth токена и генерации summary текста.
 """
 
-import os
 import requests
 import logging
 import urllib3
 from typing import Optional
-from dotenv import load_dotenv
 
-# Загружаем переменные окружения
-load_dotenv()
+# Импортируем централизованный конфиг
+import config
 
 # Отключаем предупреждения о небезопасных SSL запросах
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -53,12 +51,12 @@ def get_access_token() -> str:
         GigaChatAuthError: При ошибке аутентификации
         GigaChatError: При других ошибках
     """
-    client_id = os.getenv("CLIENT_ID")
-    client_secret = os.getenv("CLIENT_SECRET")
+    client_id = config.GIGACHAT_CLIENT_ID
+    client_secret = config.GIGACHAT_CLIENT_SECRET
     
     if not client_id or not client_secret:
         raise GigaChatAuthError(
-            "CLIENT_ID и CLIENT_SECRET должны быть установлены в .env файле"
+            "GIGACHAT_CLIENT_ID и GIGACHAT_CLIENT_SECRET должны быть установлены в .env файле"
         )
     
     try:

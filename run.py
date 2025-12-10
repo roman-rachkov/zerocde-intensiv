@@ -1,9 +1,5 @@
 import argparse
 import sys
-from dotenv import load_dotenv
-
-# Load environment variables from .env file at the project root
-load_dotenv()
 
 # Add src to the Python path to allow for absolute imports
 sys.path.insert(0, './src')

@@ -2,12 +2,10 @@
 Telegram-бот с интеграцией GigaChat API для суммаризации сообщений.
 """
 import telebot
-import os
 import sqlite3
 import logging
 import sys
 from pathlib import Path
-from dotenv import load_dotenv
 import requests
 import urllib3
 
@@ -16,9 +14,6 @@ sys.path.append(str(Path(__file__).resolve().parents[2]))
 
 import config
 from llm.gigachat import get_access_token, CHAT_COMPLETIONS_URL, GigaChatError, GigaChatAuthError, GigaChatAPIError
-
-# Load .env file from the project root
-load_dotenv(dotenv_path=config.BASE_DIR / ".env")
 
 # Отключаем предупреждения о небезопасных SSL запросах
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -34,11 +29,11 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Получаем токен бота из переменных окружения
-BOT_TOKEN = os.getenv("BOT_TOKEN")
+# Получаем токен бота из централизованного конфига
+BOT_TOKEN = config.BOT_TOKEN
 
 if not BOT_TOKEN:
-    print("ОШИБКА: BOT_TOKEN не найден в переменных окружения!")
+    print("ОШИБКА: BOT_TOKEN не найден в .env файле!")
     print("Убедитесь, что:")
     print("1. Файл .env существует в корневой директории проекта")
     print("2. В файле .env указан BOT_TOKEN=ваш_токен")
